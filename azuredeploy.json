@@ -1,0 +1,251 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "VirtualMachineName": {
+            "defaultValue": "azgamzvm",
+            "type": "String"
+        },
+        "DataDiskSizeGB": {
+            "defaultValue": 128,
+            "type": "Int",
+            "metadata": {
+                "description": "This where we install Steam. Can be increased post-deployement if needed."
+            }
+        },
+        "RdpSourceAddressPrefix": {
+            "defaultValue": "*",
+            "type": "String",
+            "metadata": {
+                "description": "This should be YOUR public IP address - e.g. where you are going to be connecting from. This is to only allow RPD from that address."
+            }
+        },
+        "VirtualMachineAdminUsername": {
+            "defaultValue": "azgamzAdmin",
+            "type": "String"
+        },
+        "VirtualMachinesAdminPassword": {
+            "type": "securestring"
+        }
+    },
+    "variables": {
+        "DataDiskName": "[concat(parameters('VirtualMachineName'),'-DataDisk')]",
+        "publicIPAddresses": "[concat(parameters('VirtualMachineName'),'-PublicIP')]",
+        "virtualNetworkName": "[concat(parameters('VirtualMachineName'),'-vNET')]",
+        "VMNicName": "[concat(parameters('VirtualMachineName'),'-NIC')]",
+        "networkSecurityGroupName": "[concat(parameters('VirtualMachineName'),'-NSG')]"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Compute/disks",
+            "apiVersion": "2018-06-01",
+            "name": "[variables('DataDiskName')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "StandardSSD_LRS"
+            },
+            "properties": {
+                "creationData": {
+                    "createOption": "Empty"
+                },
+                "diskSizeGB": "[parameters('DataDiskSizeGB')]"
+            }
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2019-11-01",
+            "name": "[variables('publicIPAddresses')]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Basic"
+            },
+            "properties": {
+                "publicIPAddressVersion": "IPv4",
+                "publicIPAllocationMethod": "Dynamic",
+                "idleTimeoutInMinutes": 4,
+                "dnsSettings": {
+                    "domainNameLabel": "[parameters('VirtualMachineName')]"
+                },
+                "ipTags": [
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2019-08-01",
+            "name": "[variables('networkSecurityGroupName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "default-allow-3389",
+                        "properties": {
+                            "priority": 1000,
+                            "access": "Allow",
+                            "direction": "Inbound",
+                            "destinationPortRange": "3389",
+                            "protocol": "Tcp",
+                            "sourceAddressPrefix": "[parameters('RDPsourceAddressPrefix')]",
+                            "sourcePortRange": "*",
+                            "destinationAddressPrefix": "*"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2019-11-01",
+            "name": "[variables('virtualNetworkName')]",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "Subnet",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/24"
+                        }
+                    }
+                ],
+                "enableDdosProtection": false,
+                "enableVmProtection": false
+            }
+        },
+        {
+            "type": "Microsoft.Network/virtualNetworks/subnets",
+            "apiVersion": "2019-11-01",
+            "name": "[concat(variables('virtualNetworkName'), '/Subnet')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/virtualNetworks', variables('virtualNetworkName'))]"
+            ],
+            "properties": {
+                "addressPrefix": "10.0.0.0/24",
+                "delegations": [
+                ],
+                "privateEndpointNetworkPolicies": "Enabled",
+                "privateLinkServiceNetworkPolicies": "Enabled"
+            }
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2019-11-01",
+            "name": "[variables('VMNicName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddresses'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), 'Subnet')]",
+                "[resourceId('Microsoft.Network/networkSecurityGroups/', variables('networkSecurityGroupName'))]"
+            ],
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddresses'))]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), 'Subnet')]"
+                            },
+                            "primary": true,
+                            "privateIPAddressVersion": "IPv4"
+                        }
+                    }
+                ],
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups/', variables('networkSecurityGroupName'))]"
+                },
+                "dnsSettings": {
+                    "dnsServers": [
+                    ]
+                },
+                "enableAcceleratedNetworking": false,
+                "enableIPForwarding": false
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2019-07-01",
+            "name": "[parameters('VirtualMachineName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', variables('VMNicName'))]",
+                "[resourceId('Microsoft.Compute/disks/', variables('DataDiskName'))]"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_NV6_Promo"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "MicrosoftWindowsServer",
+                        "offer": "WindowsServer",
+                        "sku": "2016-Datacenter",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "createOption": "FromImage",
+                        "managedDisk": {
+                            "storageAccountType": "StandardSSD_LRS"
+                        }
+                    },
+                    "dataDisks": [
+                        {
+                            "lun": 0,
+                            "name": "[variables('DataDiskName')]",
+                            "createOption": "attach",
+                            "managedDisk": {
+                                "id": "[resourceId('Microsoft.Compute/disks/', variables('DataDiskName'))]"
+                            }
+                        }
+                    ]
+                },
+                "osProfile": {
+                    "computerName": "[parameters('VirtualMachineName')]",
+                    "adminUsername": "[parameters('VirtualMachineAdminUsername')]",
+                    "adminPassword": "[parameters('VirtualMachinesAdminPassword')]",
+                    "windowsConfiguration": {
+                        "provisionVMAgent": true,
+                        "enableAutomaticUpdates": false
+                    },
+                    "secrets": [
+                    ]
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('VMNicName'))]"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines/extensions",
+            "apiVersion": "2019-12-01",
+            "name": "[concat(parameters('VirtualMachineName'),'/', 'setupScripts')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[concat('Microsoft.Compute/virtualMachines/',parameters('VirtualMachineName'))]"
+            ],
+            "properties": {
+                "publisher": "Microsoft.Compute",
+                "type": "CustomScriptExtension",
+                "typeHandlerVersion": "1.10",
+                "autoUpgradeMinorVersion": true,
+                "settings": {
+                    "fileUris": [
+                        "https://raw.githubusercontent.com/pkosek/azgamz/master/1_VMExtensionScript.ps1"
+                    ],
+                    "commandToExecute": "[concat('powershell.exe -ExecutionPolicy Unrestricted -File 1_VMExtensionScript.ps1 -admin_username ', parameters('VirtualMachineAdminUsername'), ' -admin_password ', '\"', parameters('VirtualMachinesAdminPassword'),'\"')]"
+                }
+            }
+        }
+    ]
+}
