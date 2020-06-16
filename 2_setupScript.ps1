@@ -24,6 +24,10 @@ $nvsmi = "C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe"
 $gpu = & $nvsmi --format=csv,noheader --query-gpu=pci.bus_id
 & $nvsmi -g $gpu -fdm 0
 
+#cleanup desktop icons
+rm "C:\Users\Public\Desktop\Windows TShell.lnk"
+rm "C:\Users\Public\Desktop\WPCups.lnk" 
+
 schtasks.exe /delete /f /tn HeadlessRestartTask
 
 Restart-Computer
