@@ -35,6 +35,7 @@ Disable-ScheduledTask -TaskName 'Windows Defender Verification' -TaskPath '\Micr
 Disable-ScheduledTask -TaskName 'ServerManager' -TaskPath '\Microsoft\Windows\Server Manager' 
 
 #Install nVidia Driver - https://docs.microsoft.com/en-us/azure/virtual-machines/windows/n-series-driver-setup
+#latest driver can be found here but may not be supported by Azure: https://www.nvidia.co.uk/Download/driverResults.aspx/158350/en-uk
 $url = "https://go.microsoft.com/fwlink/?linkid=874181"
 $driver_file = "grid_win10_64bit_international_whql.exe"
 Write-Output "Downloading Nvidia M60 driver from URL $url"
