@@ -8,6 +8,10 @@
 5. Shutdown the VM - make sure it's deallocated (stopped) to avoid extra charges (automated shutdowns are good idea)
 6. Next time you play, just start the VM via the portal (shell), no need to RDP again.
 
+##FAQ
+- Moonlight Streaming is not supported as it requires GeForce card (not Tesla)
+
 ## Resources
 - Steam Remote Play: https://support.steampowered.com/kb_article.php?ref=3629-riav-1617
 - This is a loose fork of https://github.com/ecalder6/azure-gaming/ - Thank you!
+- AWS Alternative with RTX cards: https://github.com/parsec-cloud/Parsec-Cloud-Preparation-Tool
