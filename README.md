@@ -8,7 +8,7 @@
 5. Shutdown the VM - make sure it's deallocated (stopped) to avoid extra charges (automated shutdowns are good idea)
 6. Next time you play, just start the VM via the portal (shell), no need to RDP again.
 
-##FAQ
+## FAQ
 - Moonlight Streaming is not supported as it requires GeForce card (not Tesla)
 
 ## Resources
